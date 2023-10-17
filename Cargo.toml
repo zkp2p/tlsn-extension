@@ -42,6 +42,11 @@ branch = "dev-20231006-webtime-2"
 package = "tlsn-prover"
 features = ["tracing"]
 
+[dependencies.tlsn-core]
+git = "https://github.com/mhchia/tlsn.git"
+branch = "dev-20231006-webtime-2"
+package = "tlsn-core"
+
 [dependencies.web-sys]
 version = "0.3.4"
 features = [

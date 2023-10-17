@@ -8,6 +8,7 @@ use hyper::{body::to_bytes, Body, Request, StatusCode};
 use futures::{AsyncWriteExt, TryFutureExt};
 use futures::channel::oneshot;
 use tlsn_prover::{Prover, ProverConfig};
+use tlsn_core::proof::TlsProof;
 
 // use tokio::io::AsyncWriteExt as _;
 use serde_json;
@@ -66,7 +67,6 @@ fn make_app_request(
     headers: &JsValue,
     body: Vec<u8>,
 ) -> Result<Request<Body>, JsValue> {
-
     // Build the HTTP request to fetch the DMs
     let mut request_builder = Request::builder()
         .method(method)
@@ -84,7 +84,6 @@ fn make_app_request(
 
         if let Some(key_str) = key.as_string() {
             if let Some(value_str) = value.as_string() {
-                log!("!@# Header: {} = {}", key_str, value_str);
                 request_builder = request_builder.header(key_str, value_str);
             }
         }
@@ -97,24 +96,33 @@ fn make_app_request(
 }
 
 
+fn string_list_to_bytes_vec(secrets: &JsValue) -> Vec<Vec<u8>> {
+    let array: Array = Array::from(secrets);
+    let length = array.length();
+    let mut byte_slices: Vec<Vec<u8>> = Vec::new();
+
+    for i in 0..length {
+        let secret_js: JsValue = array.get(i);
+        let secret_str: String = secret_js.as_string().unwrap();
+        let secret_bytes = secret_str.into_bytes();
+        byte_slices.push(secret_bytes);
+    }
+    byte_slices
+}
+
 #[wasm_bindgen]
-pub async fn prover(
+pub async fn notarize(
     max_transcript_size: usize,
     notary_host: &str,
     notary_port: u16,
     server_domain: &str,
-    route: &str,
-    conversation_id: &str,
-    client_uuid: &str,
-    user_agent: &str,
-    auth_token: &str,
-    access_token: &str,
-    csrf_token: &str,
     websocket_proxy_url: &str,
     method: &str,
     url: &str,
     headers: JsValue,
     body: Vec<u8>,
+    secrets: JsValue,
+    reveals: JsValue,
 ) -> Result<String, JsValue> {
     let fmt_layer = tracing_subscriber::fmt::layer()
     .with_ansi(false) // Only partially supported across browsers
@@ -280,54 +288,79 @@ pub async fn prover(
 
     // The Prover task should be done now, so we can grab it.
     // let mut prover = prover_task.await.unwrap().unwrap();
-    let mut prover = prover_receiver.await.unwrap();
+    let prover = prover_receiver.await.unwrap();
     let mut prover = prover.start_notarize();
     log!("!@# 14");
 
+    let secrets_vecs = string_list_to_bytes_vec(&secrets);
+    let secrets_slices: Vec<&[u8]> = secrets_vecs.iter().map(|vec| vec.as_slice()).collect();
+
     // Identify the ranges in the transcript that contain secrets
-    let (public_ranges, private_ranges) = find_ranges(
+    let (sent_public_ranges, sent_private_ranges) = find_ranges(
         prover.sent_transcript().data(),
-        &[
-            access_token.as_bytes(),
-            auth_token.as_bytes(),
-            csrf_token.as_bytes(),
-        ],
+        secrets_slices.as_slice(),
     );
     log!("!@# 15");
 
-    let recv_len = prover.recv_transcript().data().len();
+    let reveal_vecs = string_list_to_bytes_vec(&reveals);
+    let reveal_slices: Vec<&[u8]> = reveal_vecs.iter().map(|vec| vec.as_slice()).collect();
+    // Identify the ranges in the transcript that contain the only data we want to reveal later
+    let (recv_private_ranges, recv_public_ranges) = find_ranges(
+        prover.recv_transcript().data(),
+        reveal_slices.as_slice(),
+    );
+    log!("!@# 15");
 
     let builder = prover.commitment_builder();
 
-    // Commit to each range of the public outbound data which we want to disclose
-    let sent_commitments: Vec<_> = public_ranges
+    // Commit to the outbound and inbound transcript, isolating the data that contain secrets
+    let sent_pub_commitment_ids = sent_public_ranges
         .iter()
-        .map(|r| builder.commit_sent(r.clone()).unwrap())
-        .collect();
+        .map(|range| builder.commit_sent(range.clone()).unwrap())
+        .collect::<Vec<_>>();
 
-    // Commit to all inbound data in one shot, as we don't need to redact anything in it
-    let recv_commitment = builder.commit_recv(0..recv_len).unwrap();
+    sent_private_ranges.iter().for_each(|range| {
+        builder.commit_sent(range.clone()).unwrap();
+    });
+
+    let recv_pub_commitment_ids = recv_public_ranges
+        .iter()
+        .map(|range| builder.commit_recv(range.clone()).unwrap())
+        .collect::<Vec<_>>();
+
+    recv_private_ranges.iter().for_each(|range| {
+        builder.commit_recv(range.clone()).unwrap();
+    });
 
     // Finalize, returning the notarized session
     let notarized_session = prover.finalize().await.unwrap();
+
+    log!("Notarization complete!");
 
     // Create a proof for all committed data in this session
     let session_proof = notarized_session.session_proof();
 
     let mut proof_builder = notarized_session.data().build_substrings_proof();
 
-    // Reveal all the public ranges
-    for commitment_id in sent_commitments {
-        proof_builder.reveal(commitment_id).unwrap();
-    }
-    proof_builder.reveal(recv_commitment).unwrap();
+    // Reveal everything except the redacted stuff (which for the response it's everything except the screen_name)
+    sent_pub_commitment_ids
+        .iter()
+        .chain(recv_pub_commitment_ids.iter())
+        .for_each(|id| {
+            proof_builder.reveal(*id).unwrap();
+        });
 
     let substrings_proof = proof_builder.build().unwrap();
-    let res = serde_json::to_string_pretty(&(&session_proof, &substrings_proof, &server_domain))
-        .unwrap();
+
+    let proof = TlsProof {
+        session: session_proof,
+        substrings: substrings_proof,
+    };
+
+    let res = serde_json::to_string_pretty(&proof).unwrap();
 
     let duration = start_time.elapsed();
-    log!("!@# request takes: {} seconds", duration.as_secs());
+    log!("!@# request took: {} seconds", duration.as_secs());
 
     Ok(res)
 
