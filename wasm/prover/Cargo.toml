@@ -40,16 +40,15 @@ time = { version = "0.3", features = ["wasm-bindgen"] }
 # Used to calculate elapsed time.
 web-time = "0.2"
 
-# tlsn-prover = { path = "../tlsn/tlsn/tlsn-prover", features = ["tracing"] }
 [dependencies.tlsn-prover]
-git = "https://github.com/mhchia/tlsn.git"
-branch = "dev-20231006-webtime-2"
+git = "https://github.com/tlsnotary/tlsn.git"
+rev = "2fa4f50"
 package = "tlsn-prover"
 features = ["tracing"]
 
 [dependencies.tlsn-core]
-git = "https://github.com/mhchia/tlsn.git"
-branch = "dev-20231006-webtime-2"
+git = "https://github.com/tlsnotary/tlsn.git"
+rev = "2fa4f50"
 package = "tlsn-core"
 
 [dependencies.web-sys]

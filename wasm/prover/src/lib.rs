@@ -8,7 +8,7 @@ use web_time::Instant;
 use hyper::{body::to_bytes, Body, Request, StatusCode};
 use futures::{AsyncWriteExt, TryFutureExt};
 use futures::channel::oneshot;
-use tlsn_prover::{Prover, ProverConfig};
+use tlsn_prover::tls::{Prover, ProverConfig};
 
 // use tokio::io::AsyncWriteExt as _;
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
@@ -248,7 +248,7 @@ pub async fn prover(
         log!("added body - {}", options.body.as_str());
         req_with_body = req_with_header.body(Body::from(options.body));
     }
-        
+
     let unwrapped_request = req_with_body.unwrap();
 
 
@@ -423,7 +423,7 @@ pub async fn verify(
         recv: String::from_utf8(recv.data().to_vec()).unwrap(),
     };
     let res = serde_json::to_string_pretty(&result).unwrap();
-    
+
     Ok(res)
 }
 
