@@ -7,17 +7,18 @@ import {
   useActiveTab,
   useActiveTabUrl,
 } from '../../reducers/requests';
-import { BackgroundActiontype } from '../Background/actionTypes';
-import Requests from '../Requests';
-import Options from '../../components/Options';
-import Request from '../Requests/Request';
-import Home from '../Home';
+import { BackgroundActiontype } from '../Background/rpc';
+import Requests from '../../pages/Requests';
+import Options from '../../pages/Options';
+import Request from '../../pages/Requests/Request';
+import Home from '../../pages/Home';
 import logo from '../../assets/img/icon-128.png';
-import RequestBuilder from '../RequestBuilder';
-import Notarize from '../../components/Notarize';
-import ProofViewer from '../../components/ProofViewer';
-import History from '../../components/History';
-import ProofUploader from '../../components/ProofUploader';
+import RequestBuilder from '../../pages/RequestBuilder';
+import Notarize from '../../pages/Notarize';
+import ProofViewer from '../../pages/ProofViewer';
+import History from '../../pages/History';
+import ProofUploader from '../../pages/ProofUploader';
+import browser from 'webextension-polyfill';
 
 const Popup = () => {
   const dispatch = useDispatch();
@@ -27,7 +28,7 @@ const Popup = () => {
 
   useEffect(() => {
     (async () => {
-      const [tab] = await chrome.tabs.query({
+      const [tab] = await browser.tabs.query({
         active: true,
         lastFocusedWindow: true,
       });

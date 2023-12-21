@@ -1,0 +1,50 @@
+{
+  "manifest_version": 2,
+  "name": "TLSN Extension",
+  "description": "A chrome extension for TLSN",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tlsn-extension-dev@tlsnotary.org",
+      "strict_min_version": "42.0"
+    }
+  },
+  "background": {
+    "scripts": [
+      "background.bundle.js"
+    ],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_icon": "icon-34.png",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "128": "icon-128.png"
+  },
+  "content_security_policy": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';",
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*", "<all_urls>"],
+      "js": ["contentScript.bundle.js"],
+      "css": ["content.styles.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    "content.styles.css",
+    "icon-128.png",
+    "icon-34.png",
+    "7.js",
+    "278.js",
+    "349.js",
+    "26f00cc36bec9d635c39.wasm"
+  ],
+  "permissions": [
+    "storage",
+    "http://*/",
+    "https://*/",
+    "webRequest",
+    "activeTab",
+    "unlimitedStorage",
+    "<all_urls>"
+  ]
+}

@@ -1,12 +1,13 @@
 import {
   type RequestLog,
   type RequestHistory,
-} from '../pages/Background/actionTypes';
+} from '../entries/Background/rpc';
 import { useSelector } from 'react-redux';
 import { AppRootState } from './index';
 import deepEqual from 'fast-deep-equal';
 import { get, NOTARY_API_LS_KEY, PROXY_API_LS_KEY } from '../utils/storage';
-import { BackgroundActiontype } from '../pages/Background/actionTypes';
+import { BackgroundActiontype } from '../entries/Background/rpc';
+import browser from 'webextension-polyfill';
 
 enum ActionType {
   '/requests/setRequests' = '/requests/setRequests',
@@ -25,7 +26,7 @@ type State = {
   map: {
     [requestId: string]: RequestLog;
   };
-  activeTab: chrome.tabs.Tab | null;
+  activeTab: browser.Tabs.Tab | null;
 };
 
 const initialState: State = {
@@ -59,8 +60,8 @@ export const notarizeRequest = (options: RequestHistory) => async () => {
 };
 
 export const setActiveTab = (
-  activeTab: chrome.tabs.Tab | null,
-): Action<chrome.tabs.Tab | null> => ({
+  activeTab: browser.Tabs.Tab | null,
+): Action<browser.Tabs.Tab | null> => ({
   type: ActionType['/requests/setActiveTab'],
   payload: activeTab,
 });
@@ -120,7 +121,7 @@ export const useRequest = (requestId?: string): RequestLog | null => {
   }, deepEqual);
 };
 
-export const useActiveTab = (): chrome.tabs.Tab | null => {
+export const useActiveTab = (): browser.Tabs.Tab | null => {
   return useSelector((state: AppRootState) => {
     return state.requests.activeTab;
   }, deepEqual);

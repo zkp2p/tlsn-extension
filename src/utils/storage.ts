@@ -1,13 +1,15 @@
+import browser from 'webextension-polyfill';
+
 export const NOTARY_API_LS_KEY = 'notary-api';
 export const PROXY_API_LS_KEY = 'proxy-api';
 export const HISTORY_LS_KEY = 'history';
 
 export async function set(key: string, value: string) {
-  return chrome.storage.sync.set({ [key]: value });
+  return browser.storage.sync.set({ [key]: value });
 }
 
 export async function get(key: string, defaultValue?: string) {
-  return chrome.storage.sync
+  return browser.storage.sync
     .get(key)
     .then((json: any) => json[key] || defaultValue)
     .catch(() => '');
